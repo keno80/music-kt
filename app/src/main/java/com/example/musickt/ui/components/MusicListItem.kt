@@ -20,7 +20,8 @@ fun MusicListItem(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = null,
         colors = CardDefaults.cardColors(
             containerColor = if (isPlaying) 
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -37,6 +38,7 @@ fun MusicListItem(
             Text(
                 text = music.title,
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -46,7 +48,7 @@ fun MusicListItem(
             Text(
                 text = music.artist,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -60,13 +62,13 @@ fun MusicListItem(
                 Text(
                     text = formatDuration(music.duration),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 
                 Text(
                     text = formatSize(music.size),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
         }

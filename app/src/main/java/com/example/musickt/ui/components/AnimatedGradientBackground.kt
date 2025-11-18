@@ -34,7 +34,7 @@ fun AnimatedGradientBackground(
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
+            animation = tween(12000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "offsetX"
@@ -44,7 +44,7 @@ fun AnimatedGradientBackground(
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
+            animation = tween(9000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "offsetY"

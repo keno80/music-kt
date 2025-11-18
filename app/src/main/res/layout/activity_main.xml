@@ -5,16 +5,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:elevation="4dp"
+        android:background="@android:color/transparent"
         app:title="Zenly"
-        app:titleTextColor="@android:color/white">
+        app:titleTextColor="?attr/colorPrimary">
 
         <ImageButton
             android:id="@+id/btn_settings"
@@ -24,7 +24,7 @@
             android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_settings"
-            android:tint="@android:color/white"
+            android:tint="?attr/colorPrimary"
             android:contentDescription="设置" />
     </com.google.android.material.appbar.MaterialToolbar>
 

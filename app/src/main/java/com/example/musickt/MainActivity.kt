@@ -19,14 +19,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.example.musickt.player.MusicPlayer
 import com.example.musickt.ui.components.MusicListItem
+import com.example.musickt.ui.components.MusicPlayerBar
 import com.example.musickt.ui.theme.MusicKtTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val musicList = mutableStateListOf<MusicItem>()
+    private lateinit var musicPlayer: MusicPlayer
 
     private val scanCompleteReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -39,6 +43,7 @@ class MainActivity : ComponentActivity() {
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
+        musicPlayer = MusicPlayer(this)
         registerScanReceiver()
         loadMusicList()
         
@@ -46,6 +51,7 @@ class MainActivity : ComponentActivity() {
             MusicKtTheme {
                 MainScreen(
                     musicList = musicList,
+                    musicPlayer = musicPlayer,
                     onSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
                     }
@@ -128,6 +134,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        musicPlayer.release()
         unregisterReceiver(scanCompleteReceiver)
     }
 }
@@ -136,8 +143,18 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     musicList: List<MusicItem>,
+    musicPlayer: MusicPlayer,
     onSettingsClick: () -> Unit
 ) {
+    var currentMusicIndex by remember { mutableStateOf(-1) }
+    
+    LaunchedEffect(musicPlayer.isPlaying) {
+        while (musicPlayer.isPlaying) {
+            musicPlayer.updateProgress()
+            delay(100)
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -156,6 +173,31 @@ fun MainScreen(
                     actionIconContentColor = MaterialTheme.colorScheme.primary
                 )
             )
+        },
+        bottomBar = {
+            MusicPlayerBar(
+                currentMusic = musicPlayer.currentMusic,
+                isPlaying = musicPlayer.isPlaying,
+                onPlayPauseClick = {
+                    if (musicPlayer.isPlaying) {
+                        musicPlayer.pause()
+                    } else {
+                        musicPlayer.resume()
+                    }
+                },
+                onNextClick = {
+                    if (currentMusicIndex < musicList.size - 1) {
+                        currentMusicIndex++
+                        musicPlayer.play(musicList[currentMusicIndex])
+                    }
+                },
+                onPreviousClick = {
+                    if (currentMusicIndex > 0) {
+                        currentMusicIndex--
+                        musicPlayer.play(musicList[currentMusicIndex])
+                    }
+                }
+            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -163,8 +205,16 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            items(musicList) { music ->
-                MusicListItem(music = music)
+            items(musicList.size) { index ->
+                val music = musicList[index]
+                MusicListItem(
+                    music = music,
+                    isPlaying = musicPlayer.currentMusic?.id == music.id,
+                    onClick = {
+                        currentMusicIndex = index
+                        musicPlayer.play(music)
+                    }
+                )
             }
         }
     }

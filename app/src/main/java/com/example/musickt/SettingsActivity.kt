@@ -1,28 +1,31 @@
 package com.example.musickt
 
 import android.Manifest
-import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.view.Window
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import com.example.musickt.databinding.ActivitySettingsBinding
-import com.example.musickt.databinding.DialogScanResultBinding
-import kotlinx.coroutines.CoroutineScope
+import com.example.musickt.ui.components.ScanResultDialog
+import com.example.musickt.ui.theme.MusicKtTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class SettingsActivity : AppCompatActivity() {
-    private lateinit var binding: ActivitySettingsBinding
-
+class SettingsActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -32,32 +35,37 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "需要存储权限来扫描音乐", Toast.LENGTH_SHORT).show()
         }
     }
+    
+    private var showDialog by mutableStateOf(false)
+    private var scannedMusicList by mutableStateOf<List<MusicItem>>(emptyList())
+    private var isScanning by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 设置状态栏自动反色
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-        }
         
-        binding = ActivitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setupToolbar()
-        setupClickListeners()
-    }
-
-    private fun setupToolbar() {
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-    }
-
-    private fun setupClickListeners() {
-        binding.btnScanMusic.setOnClickListener {
-            checkPermissionAndScan()
+        setContent {
+            MusicKtTheme {
+                SettingsScreen(
+                    isScanning = isScanning,
+                    onBackClick = { finish() },
+                    onScanClick = { checkPermissionAndScan() }
+                )
+                
+                if (showDialog) {
+                    val totalSize = scannedMusicList.sumOf { it.size }
+                    ScanResultDialog(
+                        songCount = scannedMusicList.size,
+                        totalSize = formatSize(totalSize),
+                        onDismiss = { showDialog = false },
+                        onStartZenly = {
+                            showDialog = false
+                            finish()
+                        }
+                    )
+                }
+            }
         }
     }
 
@@ -69,10 +77,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         when {
-            ContextCompat.checkSelfPermission(
-                this,
-                permission
-            ) == PackageManager.PERMISSION_GRANTED -> {
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED -> {
                 scanMusic()
             }
             else -> {
@@ -82,10 +87,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun scanMusic() {
-        binding.btnScanMusic.isEnabled = false
-        binding.btnScanMusic.text = "扫描中..."
+        isScanning = true
 
-        CoroutineScope(Dispatchers.IO).launch {
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             val scannedMusic = mutableListOf<MusicItem>()
             
             val projection = arrayOf(
@@ -132,52 +136,19 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             withContext(Dispatchers.Main) {
-                binding.btnScanMusic.isEnabled = true
-                binding.btnScanMusic.text = "扫描音乐"
-                
-                // 保存扫描结果到 SharedPreferences 或数据库
+                isScanning = false
+                scannedMusicList = scannedMusic
                 saveScanResult(scannedMusic)
-                
-                // 显示扫描结果弹窗
-                showScanResultDialog(scannedMusic)
+                showDialog = true
             }
         }
     }
 
     private fun saveScanResult(musicList: List<MusicItem>) {
-        // 这里可以保存到数据库或 SharedPreferences
-        // 为简化，我们通过 Intent 传递数据
         val intent = Intent(SCAN_COMPLETE_ACTION)
         intent.putExtra(EXTRA_SONG_COUNT, musicList.size)
         intent.putExtra(EXTRA_TOTAL_SIZE, musicList.sumOf { it.size })
         sendBroadcast(intent)
-    }
-
-    private fun showScanResultDialog(musicList: List<MusicItem>) {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        val dialogBinding = DialogScanResultBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-        
-        // 设置弹窗样式
-        dialog.window?.apply {
-            setBackgroundDrawableResource(android.R.color.transparent)
-            setLayout(
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val totalSize = musicList.sumOf { it.size }
-        dialogBinding.tvDialogSongCount.text = musicList.size.toString()
-        dialogBinding.tvDialogTotalSize.text = formatSize(totalSize)
-
-        dialogBinding.btnStartZenly.setOnClickListener {
-            dialog.dismiss()
-            finish()
-        }
-
-        dialog.show()
     }
 
     private fun formatSize(size: Long): String {
@@ -195,5 +166,75 @@ class SettingsActivity : AppCompatActivity() {
         const val SCAN_COMPLETE_ACTION = "com.example.musickt.SCAN_COMPLETE"
         const val EXTRA_SONG_COUNT = "song_count"
         const val EXTRA_TOTAL_SIZE = "total_size"
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    isScanning: Boolean,
+    onBackClick: () -> Unit,
+    onScanClick: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("设置") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "音乐库管理",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Text(
+                        text = "扫描设备上的音乐文件",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Button(
+                        onClick = onScanClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isScanning
+                    ) {
+                        Text(if (isScanning) "扫描中..." else "扫描音乐")
+                    }
+                }
+            }
+        }
     }
 }

@@ -7,23 +7,29 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.musickt.databinding.ActivityMainBinding
-import kotlinx.coroutines.CoroutineScope
+import com.example.musickt.ui.components.MusicListItem
+import com.example.musickt.ui.theme.MusicKtTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var musicAdapter: MusicAdapter
-    private val musicList = mutableListOf<MusicItem>()
+class MainActivity : ComponentActivity() {
+    private val musicList = mutableStateListOf<MusicItem>()
 
     private val scanCompleteReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            // 扫描完成后重新加载音乐列表
             loadMusicList()
         }
     }
@@ -31,32 +37,20 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 设置状态栏自动反色
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-        }
         
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setupRecyclerView()
-        setupClickListeners()
         registerScanReceiver()
         loadMusicList()
-    }
-
-    private fun setupRecyclerView() {
-        musicAdapter = MusicAdapter(musicList)
-        binding.rvMusicList.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = musicAdapter
-        }
-    }
-
-    private fun setupClickListeners() {
-        binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        
+        setContent {
+            MusicKtTheme {
+                MainScreen(
+                    musicList = musicList,
+                    onSettingsClick = {
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                    }
+                )
+            }
         }
     }
 
@@ -71,12 +65,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 从设置页面返回时重新加载音乐列表
         loadMusicList()
     }
 
     private fun loadMusicList() {
-        CoroutineScope(Dispatchers.IO).launch {
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             val scannedMusic = mutableListOf<MusicItem>()
             
             val projection = arrayOf(
@@ -129,7 +122,6 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 musicList.clear()
                 musicList.addAll(scannedMusic)
-                musicAdapter.updateList(musicList)
             }
         }
     }
@@ -137,5 +129,43 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(scanCompleteReceiver)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(
+    musicList: List<MusicItem>,
+    onSettingsClick: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Zenly") },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "设置"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    actionIconContentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            items(musicList) { music ->
+                MusicListItem(music = music)
+            }
+        }
     }
 }

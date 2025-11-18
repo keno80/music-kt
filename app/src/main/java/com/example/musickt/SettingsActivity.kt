@@ -159,12 +159,14 @@ class SettingsActivity : AppCompatActivity() {
         val dialogBinding = DialogScanResultBinding.inflate(layoutInflater)
         dialog.setContentView(dialogBinding.root)
         
-        // 设置弹窗宽度
-        dialog.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.75).toInt(),
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        // 设置弹窗样式
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setLayout(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
 
         val totalSize = musicList.sumOf { it.size }
         dialogBinding.tvDialogSongCount.text = musicList.size.toString()

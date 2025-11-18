@@ -36,7 +36,7 @@ fun MusicPlayerBar(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
             tonalElevation = 3.dp
         ) {
             Row(

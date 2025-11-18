@@ -8,6 +8,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.musickt.MusicItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicListItem(
     music: MusicItem,
@@ -22,9 +23,9 @@ fun MusicListItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isPlaying) 
-                MaterialTheme.colorScheme.primaryContainer 
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             else 
-                MaterialTheme.colorScheme.surface
+                androidx.compose.ui.graphics.Color.Transparent
         ),
         onClick = onClick
     ) {

@@ -27,3 +27,13 @@ val ExpressiveBackground = Color(0xFFFFFBFE)
 val ExpressiveOnBackground = Color(0xFF1C1B1F)
 val ExpressiveSurface = Color(0xFFFFFBFE)
 val ExpressiveOnSurface = Color(0xFF1C1B1F)
+
+// 动态背景渐变色 - 浅色模式
+val LightGradient1 = Color(0xFF6750A4) // 紫色
+val LightGradient2 = Color(0xFF3871A8) // 蓝色
+val LightGradient3 = Color(0xFF8C6D62) // 棕色
+
+// 动态背景渐变色 - 深色模式（降低亮度）
+val DarkGradient1 = Color(0xFF4A3B6B) // 深紫色
+val DarkGradient2 = Color(0xFF2E4A6B) // 深蓝色
+val DarkGradient3 = Color(0xFF5A4A45) // 深棕色

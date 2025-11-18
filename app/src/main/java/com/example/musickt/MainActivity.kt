@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.example.musickt.player.MusicPlayer
+import com.example.musickt.ui.components.AnimatedGradientBackground
 import com.example.musickt.ui.components.MusicListItem
 import com.example.musickt.ui.components.MusicPlayerBar
 import com.example.musickt.ui.theme.MusicKtTheme
@@ -155,26 +156,28 @@ fun MainScreen(
         }
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Zenly") },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "设置"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    actionIconContentColor = MaterialTheme.colorScheme.primary
+    AnimatedGradientBackground {
+        Scaffold(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Zenly") },
+                    actions = {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "设置"
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        actionIconContentColor = MaterialTheme.colorScheme.primary
+                    )
                 )
-            )
-        },
-        bottomBar = {
+            },
+            bottomBar = {
             MusicPlayerBar(
                 currentMusic = musicPlayer.currentMusic,
                 isPlaying = musicPlayer.isPlaying,
@@ -216,6 +219,7 @@ fun MainScreen(
                     }
                 )
             }
+        }
         }
     }
 }

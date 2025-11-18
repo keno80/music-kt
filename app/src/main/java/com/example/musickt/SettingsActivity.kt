@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import com.example.musickt.databinding.ActivitySettingsBinding
 import com.example.musickt.databinding.DialogScanResultBinding
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,13 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 设置状态栏自动反色
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+        }
+        
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -150,6 +158,13 @@ class SettingsActivity : AppCompatActivity() {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val dialogBinding = DialogScanResultBinding.inflate(layoutInflater)
         dialog.setContentView(dialogBinding.root)
+        
+        // 设置弹窗宽度
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.75).toInt(),
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         val totalSize = musicList.sumOf { it.size }
         dialogBinding.tvDialogSongCount.text = musicList.size.toString()

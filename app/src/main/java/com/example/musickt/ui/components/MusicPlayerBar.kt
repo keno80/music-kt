@@ -4,20 +4,29 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.musickt.MusicItem
+import android.media.MediaMetadataRetriever
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun MusicPlayerBar(
@@ -34,82 +43,270 @@ fun MusicPlayerBar(
         exit = slideOutVertically(targetOffsetY = { it }),
         modifier = modifier
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
-            tonalElevation = 3.dp
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .navigationBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 歌曲信息
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = currentMusic?.title ?: "",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = currentMusic?.artist ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                val context = LocalContext.current
+                val bitmap = remember(currentMusic?.path) {
+                    currentMusic?.path?.let { p ->
+                        try {
+                            val mmr = MediaMetadataRetriever()
+                            mmr.setDataSource(p)
+                            val art = mmr.embeddedPicture
+                            mmr.release()
+                            art?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
                 }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // 播放控制按钮
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                val cover = remember(bitmap) {
+                    bitmap?.let { coverColors(it) }
+                }
+                val leftCapsuleColor = cover?.dominant?.getOrNull(0) ?: MaterialTheme.colorScheme.surfaceVariant
+                val rightCapsuleColor = lighten(leftCapsuleColor, 0.18f)
+                val textColor = cover?.contrast ?: run {
+                    if (luminance(leftCapsuleColor) > 0.5f) Color.Black else Color.White
+                }
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp),
+                    color = leftCapsuleColor.copy(alpha = 0.9f),
+                    tonalElevation = 4.dp,
+                    shadowElevation = 8.dp,
+                    shape = RoundedCornerShape(
+                        topStart = 32.dp,
+                        bottomStart = 32.dp,
+                        topEnd = 8.dp,
+                        bottomEnd = 8.dp
+                    )
                 ) {
-                    IconButton(
-                        onClick = onPreviousClick,
-                        colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipPrevious,
-                            contentDescription = "上一首"
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                        ) {
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = currentMusic?.title ?: "",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = textColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = currentMusic?.artist ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = textColor.copy(alpha = 0.9f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                    
-                    FilledIconButton(
-                        onClick = onPlayPauseClick,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Surface(
+                    modifier = Modifier
+                        .height(64.dp)
+                        .clickable(onClick = onPlayPauseClick),
+                    color = rightCapsuleColor,
+                    tonalElevation = 4.dp,
+                    shadowElevation = 8.dp,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = if (isPlaying) "暂停" else "播放",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = textColor
                         )
                     }
-                    
-                    IconButton(
-                        onClick = onNextClick,
-                        colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Surface(
+                    modifier = Modifier.height(64.dp),
+                    color = rightCapsuleColor,
+                    tonalElevation = 4.dp,
+                    shadowElevation = 8.dp,
+                    shape = RoundedCornerShape(
+                        topStart = 8.dp,
+                        bottomStart = 8.dp,
+                        topEnd = 32.dp,
+                        bottomEnd = 32.dp
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
-                            contentDescription = "下一首"
+                            contentDescription = "下一首",
+                            tint = textColor
                         )
                     }
                 }
             }
+    }
+}
+
+private data class CoverColors(
+    val dominant: List<Color>,
+    val lightTop: Color?,
+    val darkTop: Color?,
+    val contrast: Color?,
+    val isMostlyDark: Boolean
+)
+
+private fun dominantColors(bitmap: Bitmap, count: Int = 2): List<Color> {
+    val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+    val step = 32
+    val freq = HashMap<Int, Int>()
+    for (y in 0 until scaled.height) {
+        for (x in 0 until scaled.width) {
+            val c = scaled.getPixel(x, y)
+            val a = (c shr 24) and 0xFF
+            if (a < 128) continue
+            val r = (c shr 16) and 0xFF
+            val g = (c shr 8) and 0xFF
+            val b = c and 0xFF
+            val brightness = (r + g + b) / 3
+            if (brightness < 24 || brightness > 232) continue
+            val rq = r / step
+            val gq = g / step
+            val bq = b / step
+            val key = (rq shl 6) or (gq shl 3) or bq
+            freq[key] = (freq[key] ?: 0) + 1
         }
     }
+    val sorted = freq.entries.sortedByDescending { it.value }.take(count)
+    return sorted.map {
+        val rq = (it.key shr 6) and 0x7
+        val gq = (it.key shr 3) and 0x7
+        val bq = it.key and 0x7
+        val r = rq * step + step / 2
+        val g = gq * step + step / 2
+        val b = bq * step + step / 2
+        Color(r / 255f, g / 255f, b / 255f)
+    }
+}
+
+private fun coverColors(bitmap: Bitmap): CoverColors {
+    val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+    val step = 32
+    val all = HashMap<Int, Int>()
+    val light = HashMap<Int, Int>()
+    val dark = HashMap<Int, Int>()
+    var darkCount = 0
+    var lightCount = 0
+    for (y in 0 until scaled.height) {
+        for (x in 0 until scaled.width) {
+            val c = scaled.getPixel(x, y)
+            val a = (c shr 24) and 0xFF
+            if (a < 128) continue
+            val r = (c shr 16) and 0xFF
+            val g = (c shr 8) and 0xFF
+            val b = c and 0xFF
+            val brightness = (r + g + b) / 3
+            val rq = r / step
+            val gq = g / step
+            val bq = b / step
+            val key = (rq shl 6) or (gq shl 3) or bq
+            all[key] = (all[key] ?: 0) + 1
+            if (brightness < 128) {
+                dark[key] = (dark[key] ?: 0) + 1
+                darkCount++
+            } else {
+                light[key] = (light[key] ?: 0) + 1
+                lightCount++
+            }
+        }
+    }
+    val topKey = all.entries.maxByOrNull { it.value }?.key
+    val dom = topKey?.let { listOf(toColor(it, step)) } ?: emptyList()
+    val lightTop = light.entries.maxByOrNull { it.value }?.key?.let { toColor(it, step) }
+    val darkTop = dark.entries.maxByOrNull { it.value }?.key?.let { toColor(it, step) }
+    val contrastKey = if (topKey != null) {
+        all.keys.maxByOrNull { k ->
+            val c1 = toColor(topKey, step)
+            val c2 = toColor(k, step)
+            colorDistance(c1, c2)
+        }
+    } else null
+    val contrast = contrastKey?.let { toColor(it, step) }
+    val mostlyDark = darkCount > lightCount
+    return CoverColors(dom, lightTop, darkTop, contrast, mostlyDark)
+}
+
+private fun toColor(key: Int, step: Int): Color {
+    val rq = (key shr 6) and 0x7
+    val gq = (key shr 3) and 0x7
+    val bq = key and 0x7
+    val r = rq * step + step / 2
+    val g = gq * step + step / 2
+    val b = bq * step + step / 2
+    return Color(r / 255f, g / 255f, b / 255f)
+}
+
+private fun darken(color: Color, amount: Float): Color {
+    val a = color.alpha
+    val r = (color.red * (1f - amount)).coerceIn(0f, 1f)
+    val g = (color.green * (1f - amount)).coerceIn(0f, 1f)
+    val b = (color.blue * (1f - amount)).coerceIn(0f, 1f)
+    return Color(r, g, b, a)
+}
+
+private fun lighten(color: Color, amount: Float): Color {
+    val a = color.alpha
+    val r = (color.red + (1f - color.red) * amount).coerceIn(0f, 1f)
+    val g = (color.green + (1f - color.green) * amount).coerceIn(0f, 1f)
+    val b = (color.blue + (1f - color.blue) * amount).coerceIn(0f, 1f)
+    return Color(r, g, b, a)
+}
+
+private fun colorDistance(c1: Color, c2: Color): Float {
+    val dr = c1.red - c2.red
+    val dg = c1.green - c2.green
+    val db = c1.blue - c2.blue
+    return kotlin.math.sqrt(dr * dr + dg * dg + db * db)
+}
+
+private fun luminance(color: Color): Float {
+    return 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
 }

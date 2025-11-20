@@ -3,6 +3,9 @@ package com.example.musickt.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -14,6 +17,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +39,8 @@ fun MusicPlayerBar(
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
     onPreviousClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    colorTransitionDurationMs: Int = 500
 ) {
     AnimatedVisibility(
         visible = currentMusic != null,
@@ -67,18 +72,21 @@ fun MusicPlayerBar(
                 val cover = remember(bitmap) {
                     bitmap?.let { coverColors(it) }
                 }
-                val leftCapsuleColor = cover?.dominant?.getOrNull(0) ?: MaterialTheme.colorScheme.surfaceVariant
-                val rightCapsuleColor = lighten(leftCapsuleColor, 0.18f)
-                val textColor = cover?.contrast ?: run {
-                    if (luminance(leftCapsuleColor) > 0.5f) Color.Black else Color.White
+                val targetLeft = cover?.dominant?.getOrNull(0) ?: MaterialTheme.colorScheme.surfaceVariant
+                val leftCapsuleColor by animateColorAsState(targetValue = targetLeft, animationSpec = tween(colorTransitionDurationMs, easing = FastOutSlowInEasing), label = "left")
+                val targetRight = lighten(targetLeft, 0.18f)
+                val rightCapsuleColor by animateColorAsState(targetValue = targetRight, animationSpec = tween(colorTransitionDurationMs, easing = FastOutSlowInEasing), label = "right")
+                val targetText = cover?.contrast ?: run {
+                    if (luminance(targetLeft) > 0.5f) Color.Black else Color.White
                 }
+                val textColor by animateColorAsState(targetValue = targetText, animationSpec = tween(colorTransitionDurationMs, easing = FastOutSlowInEasing), label = "text")
                 Surface(
                     modifier = Modifier
                         .weight(1f)
                         .height(64.dp),
                     color = leftCapsuleColor.copy(alpha = 0.9f),
-                    tonalElevation = 4.dp,
-                    shadowElevation = 8.dp,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
                     shape = RoundedCornerShape(
                         topStart = 32.dp,
                         bottomStart = 32.dp,
@@ -137,8 +145,8 @@ fun MusicPlayerBar(
                         .height(64.dp)
                         .clickable(onClick = onPlayPauseClick),
                     color = rightCapsuleColor,
-                    tonalElevation = 4.dp,
-                    shadowElevation = 8.dp,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
@@ -160,8 +168,8 @@ fun MusicPlayerBar(
                 Surface(
                     modifier = Modifier.height(64.dp),
                     color = rightCapsuleColor,
-                    tonalElevation = 4.dp,
-                    shadowElevation = 8.dp,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
                     shape = RoundedCornerShape(
                         topStart = 8.dp,
                         bottomStart = 8.dp,

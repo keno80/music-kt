@@ -12,6 +12,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -19,6 +22,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import android.media.MediaMetadataRetriever
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import com.example.musickt.player.MusicPlayer
 import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
@@ -50,7 +61,7 @@ class MainActivity : ComponentActivity() {
         loadMusicList()
         
         setContent {
-            MusicKtTheme {
+            MusicKtTheme(currentMusic = musicPlayer.currentMusic) {
                 MainScreen(
                     musicList = musicList,
                     musicPlayer = musicPlayer,
@@ -156,18 +167,51 @@ fun MainScreen(
         }
     }
     
-    AnimatedGradientBackground {
+    AnimatedGradientBackground(currentMusic = musicPlayer.currentMusic, colorTransitionDurationMs = 900) {
         Scaffold(
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = { Text("Zenly") },
                     actions = {
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "设置"
-                            )
+                        val bitmap = remember(musicPlayer.currentMusic?.path) {
+                            musicPlayer.currentMusic?.path?.let { p ->
+                                try {
+                                    val mmr = MediaMetadataRetriever()
+                                    mmr.setDataSource(p)
+                                    val art = mmr.embeddedPicture
+                                    mmr.release()
+                                    art?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            }
+                        }
+                        val dom = remember(bitmap) { bitmap?.let { dominantColorsTopBar(it) } }
+                        val base = dom?.getOrNull(0) ?: MaterialTheme.colorScheme.surfaceVariant
+                        val targetCapsule = lighten(base, 0.18f)
+                        val capsuleColor by animateColorAsState(targetValue = targetCapsule, animationSpec = tween(500, easing = FastOutSlowInEasing), label = "settingsCapsule")
+                        Box(modifier = Modifier.padding(end = 16.dp)) {
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                color = capsuleColor,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp,
+                                shape = CircleShape
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable(onClick = onSettingsClick),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "设置",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -199,7 +243,8 @@ fun MainScreen(
                         currentMusicIndex--
                         musicPlayer.play(musicList[currentMusicIndex])
                     }
-                }
+                },
+                colorTransitionDurationMs = 500
             )
         }
     ) { paddingValues ->
@@ -222,4 +267,45 @@ fun MainScreen(
         }
         }
     }
+}
+
+private fun dominantColorsTopBar(bitmap: Bitmap, count: Int = 1): List<Color> {
+    val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+    val step = 32
+    val freq = HashMap<Int, Int>()
+    for (y in 0 until scaled.height) {
+        for (x in 0 until scaled.width) {
+            val c = scaled.getPixel(x, y)
+            val a = (c shr 24) and 0xFF
+            if (a < 128) continue
+            val r = (c shr 16) and 0xFF
+            val g = (c shr 8) and 0xFF
+            val b = c and 0xFF
+            val brightness = (r + g + b) / 3
+            if (brightness < 24 || brightness > 232) continue
+            val rq = r / step
+            val gq = g / step
+            val bq = b / step
+            val key = (rq shl 6) or (gq shl 3) or bq
+            freq[key] = (freq[key] ?: 0) + 1
+        }
+    }
+    val sorted = freq.entries.sortedByDescending { it.value }.take(count)
+    return sorted.map {
+        val rq = (it.key shr 6) and 0x7
+        val gq = (it.key shr 3) and 0x7
+        val bq = it.key and 0x7
+        val r = rq * step + step / 2
+        val g = gq * step + step / 2
+        val b = bq * step + step / 2
+        Color(r / 255f, g / 255f, b / 255f)
+    }
+}
+
+private fun lighten(color: Color, amount: Float): Color {
+    val a = color.alpha
+    val r = (color.red + (1f - color.red) * amount).coerceIn(0f, 1f)
+    val g = (color.green + (1f - color.green) * amount).coerceIn(0f, 1f)
+    val b = (color.blue + (1f - color.blue) * amount).coerceIn(0f, 1f)
+    return Color(r, g, b, a)
 }

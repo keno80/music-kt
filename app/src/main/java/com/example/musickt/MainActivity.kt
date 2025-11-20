@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import android.media.MediaMetadataRetriever
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
+import android.graphics.Color as AndroidColor
 import com.example.musickt.player.MusicPlayer
 import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
@@ -225,6 +226,9 @@ fun MainScreen(
             MusicPlayerBar(
                 currentMusic = musicPlayer.currentMusic,
                 isPlaying = musicPlayer.isPlaying,
+                currentPosition = musicPlayer.currentPosition,
+                duration = musicPlayer.duration,
+                modifier = Modifier.padding(bottom = 28.dp),
                 onPlayPauseClick = {
                     if (musicPlayer.isPlaying) {
                         musicPlayer.pause()
@@ -272,7 +276,11 @@ fun MainScreen(
 private fun dominantColorsTopBar(bitmap: Bitmap, count: Int = 1): List<Color> {
     val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
     val step = 32
-    val freq = HashMap<Int, Int>()
+    val freq = HashMap<Int, Float>()
+    val cx = scaled.width / 2f
+    val cy = scaled.height / 2f
+    val maxDist = kotlin.math.sqrt(cx * cx + cy * cy)
+    val hsv = FloatArray(3)
     for (y in 0 until scaled.height) {
         for (x in 0 until scaled.width) {
             val c = scaled.getPixel(x, y)
@@ -281,13 +289,20 @@ private fun dominantColorsTopBar(bitmap: Bitmap, count: Int = 1): List<Color> {
             val r = (c shr 16) and 0xFF
             val g = (c shr 8) and 0xFF
             val b = c and 0xFF
-            val brightness = (r + g + b) / 3
-            if (brightness < 24 || brightness > 232) continue
+            AndroidColor.RGBToHSV(r, g, b, hsv)
+            val s = hsv[1]
+            val v = hsv[2]
+            if (s < 0.20f) continue
+            if (v < 0.12f || v > 0.95f) continue
+            val dx = x - cx
+            val dy = y - cy
+            val norm = kotlin.math.sqrt(dx * dx + dy * dy) / maxDist
+            val weight = (1f - norm) * (1f - norm)
             val rq = r / step
             val gq = g / step
             val bq = b / step
             val key = (rq shl 6) or (gq shl 3) or bq
-            freq[key] = (freq[key] ?: 0) + 1
+            freq[key] = (freq[key] ?: 0f) + weight
         }
     }
     val sorted = freq.entries.sortedByDescending { it.value }.take(count)

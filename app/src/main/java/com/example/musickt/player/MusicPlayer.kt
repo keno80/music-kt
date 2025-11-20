@@ -75,3 +75,15 @@ class MusicPlayer(context: Context) {
         player.release()
     }
 }
+
+object MusicPlayerHolder {
+    @Volatile
+    private var instance: MusicPlayer? = null
+
+    fun get(context: Context): MusicPlayer {
+        val appCtx = context.applicationContext
+        return instance ?: synchronized(this) {
+            instance ?: MusicPlayer(appCtx).also { instance = it }
+        }
+    }
+}

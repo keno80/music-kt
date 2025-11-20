@@ -2,6 +2,7 @@ package com.example.musickt.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import com.example.musickt.ui.theme.*
 
 @Composable
@@ -19,49 +21,100 @@ fun AnimatedGradientBackground(
     content: @Composable () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    
-    // 选择颜色
-    val colors = if (isDark) {
-        listOf(DarkGradient1, DarkGradient2, DarkGradient3)
+    val palette = if (isDark) {
+        listOf(
+            DarkGradient1.copy(alpha = 0.65f),
+            DarkGradient2.copy(alpha = 0.6f),
+            DarkGradient3.copy(alpha = 0.55f),
+            DarkGradient2.copy(alpha = 0.5f),
+            DarkGradient1.copy(alpha = 0.45f)
+        )
     } else {
-        listOf(LightGradient1, LightGradient2, LightGradient3)
+        listOf(
+            LightGradient1.copy(alpha = 0.35f),
+            LightGradient2.copy(alpha = 0.3f),
+            LightGradient3.copy(alpha = 0.28f),
+            LightGradient2.copy(alpha = 0.25f),
+            LightGradient1.copy(alpha = 0.22f)
+        )
     }
-    
-    // 创建无限循环动画
-    val infiniteTransition = rememberInfiniteTransition(label = "gradient")
-    
-    val offsetX by infiniteTransition.animateFloat(
+
+    val bgColor = if (isDark) Color(0xFF1C1B1F) else Color(0xFFFFFBFE)
+
+    val transition = rememberInfiniteTransition(label = "aurora")
+
+    val t1 by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 1000f,
+        targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(32000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "offsetX"
+        label = "t1"
     )
-    
-    val offsetY by infiniteTransition.animateFloat(
+    val t2 by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 1000f,
+        targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(9000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(26000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "offsetY"
+        label = "t2"
     )
-    
-    // 创建动态渐变
-    val brush = Brush.radialGradient(
-        colors = colors,
-        center = Offset(offsetX, offsetY),
-        radius = 1500f
+    val t3 by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(21000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "t3"
     )
-    
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(brush)
+            .background(bgColor)
     ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            val a1 = Math.toRadians(t1.toDouble()).toFloat()
+            val a2 = Math.toRadians(t2.toDouble()).toFloat()
+            val a3 = Math.toRadians(t3.toDouble()).toFloat()
+
+            val c1 = Offset(w * (0.25f + 0.2f * kotlin.math.sin(a1)), h * (0.35f + 0.25f * kotlin.math.cos(a2)))
+            val c2 = Offset(w * (0.7f + 0.15f * kotlin.math.cos(a2)), h * (0.3f + 0.2f * kotlin.math.sin(a3)))
+            val c3 = Offset(w * (0.5f + 0.25f * kotlin.math.sin(a3)), h * (0.7f + 0.15f * kotlin.math.cos(a1)))
+            val c4 = Offset(w * (0.15f + 0.25f * kotlin.math.cos(a1)), h * (0.75f + 0.2f * kotlin.math.sin(a2)))
+            val c5 = Offset(w * (0.85f + 0.2f * kotlin.math.sin(a2)), h * (0.2f + 0.25f * kotlin.math.cos(a3)))
+
+            val centers = listOf(c1, c2, c3, c4, c5)
+            val radii = listOf(w * 0.8f, w * 0.7f, w * 0.75f, w * 0.65f, w * 0.6f)
+
+            centers.zip(palette.zip(radii)).forEach { (center, pair) ->
+                val (color, radius) = pair
+                val brush = Brush.radialGradient(
+                    colors = listOf(color, Color.Transparent),
+                    center = center,
+                    radius = radius
+                )
+                drawCircle(brush = brush, radius = radius, center = center)
+            }
+
+            val shimmerAngle = a1 + a2 / 2f
+            val shimmer = Brush.linearGradient(
+                colors = listOf(Color.White.copy(alpha = if (isDark) 0.03f else 0.06f), Color.Transparent),
+                start = Offset(0f, 0f),
+                end = Offset(
+                    kotlin.math.cos(shimmerAngle) * w,
+                    kotlin.math.sin(shimmerAngle) * h
+                )
+            )
+            drawRect(brush = shimmer)
+        }
+
         content()
     }
 }

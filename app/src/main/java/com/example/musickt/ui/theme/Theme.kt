@@ -16,14 +16,28 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = ExpressivePrimaryContainer,
-    onPrimary = ExpressiveOnPrimaryContainer,
-    primaryContainer = ExpressivePrimary,
-    onPrimaryContainer = ExpressiveOnPrimary,
-    secondary = ExpressiveSecondaryContainer,
-    onSecondary = ExpressiveOnSecondaryContainer,
-    tertiary = ExpressiveTertiaryContainer,
-    onTertiary = ExpressiveOnTertiaryContainer
+    primary = ExpressivePrimary,
+    onPrimary = ExpressiveOnPrimary,
+    primaryContainer = ExpressivePrimaryContainer,
+    onPrimaryContainer = ExpressiveOnPrimaryContainer,
+    secondary = ExpressiveSecondary,
+    onSecondary = ExpressiveOnSecondary,
+    secondaryContainer = ExpressiveSecondaryContainer,
+    onSecondaryContainer = ExpressiveOnSecondaryContainer,
+    tertiary = ExpressiveTertiary,
+    onTertiary = ExpressiveOnTertiary,
+    tertiaryContainer = ExpressiveTertiaryContainer,
+    onTertiaryContainer = ExpressiveOnTertiaryContainer,
+    error = ExpressiveError,
+    onError = ExpressiveOnError,
+    errorContainer = ExpressiveErrorContainer,
+    onErrorContainer = ExpressiveOnErrorContainer,
+    background = ExpressiveBackgroundDark,
+    onBackground = ExpressiveOnBackgroundDark,
+    surface = ExpressiveSurfaceDark,
+    onSurface = ExpressiveOnSurfaceDark,
+    surfaceVariant = ExpressiveSurfaceVariantDark,
+    onSurfaceVariant = ExpressiveOnSurfaceVariantDark
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -46,7 +60,9 @@ private val LightColorScheme = lightColorScheme(
     background = ExpressiveBackground,
     onBackground = ExpressiveOnBackground,
     surface = ExpressiveSurface,
-    onSurface = ExpressiveOnSurface
+    onSurface = ExpressiveOnSurface,
+    surfaceVariant = ExpressiveSurfaceVariantLight,
+    onSurfaceVariant = ExpressiveOnSurfaceVariantLight
 )
 
 @Composable

@@ -52,6 +52,7 @@ fun MusicPlayerBar(
                     Text(
                         text = currentMusic?.title ?: "",
                         style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -71,7 +72,12 @@ fun MusicPlayerBar(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onPreviousClick) {
+                    IconButton(
+                        onClick = onPreviousClick,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
                             contentDescription = "上一首"
@@ -91,7 +97,12 @@ fun MusicPlayerBar(
                         )
                     }
                     
-                    IconButton(onClick = onNextClick) {
+                    IconButton(
+                        onClick = onNextClick,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = "下一首"

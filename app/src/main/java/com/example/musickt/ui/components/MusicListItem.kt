@@ -23,10 +23,7 @@ fun MusicListItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = null,
         colors = CardDefaults.cardColors(
-            containerColor = if (isPlaying) 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else 
-                androidx.compose.ui.graphics.Color.Transparent
+            containerColor = androidx.compose.ui.graphics.Color.Transparent
         ),
         onClick = onClick
     ) {
@@ -35,10 +32,13 @@ fun MusicListItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
+            val titleColor = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            val artistColor = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            val metaColor = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             Text(
                 text = music.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = titleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -48,7 +48,7 @@ fun MusicListItem(
             Text(
                 text = music.artist,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                color = artistColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -62,13 +62,13 @@ fun MusicListItem(
                 Text(
                     text = formatDuration(music.duration),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = metaColor
                 )
                 
                 Text(
                     text = formatSize(music.size),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = metaColor
                 )
             }
         }

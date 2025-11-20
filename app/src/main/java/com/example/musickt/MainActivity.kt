@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.example.musickt.player.MusicPlayer
+import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
 import com.example.musickt.ui.components.MusicListItem
 import com.example.musickt.ui.components.MusicPlayerBar
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
-        musicPlayer = MusicPlayer(this)
+        musicPlayer = MusicPlayerHolder.get(this)
         registerScanReceiver()
         loadMusicList()
         
@@ -135,7 +136,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        musicPlayer.release()
         unregisterReceiver(scanCompleteReceiver)
     }
 }

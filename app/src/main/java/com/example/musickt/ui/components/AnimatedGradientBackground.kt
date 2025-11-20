@@ -42,8 +42,23 @@ fun AnimatedGradientBackground(
             }
         }
     }
-    val topColors = remember(bitmap) {
-        bitmap?.let { dominantColors(it, 3) }
+    val topColors = remember(bitmap) { bitmap?.let { dominantColors(it, 3) } }
+    val basePalette = if (isDark) {
+        listOf(
+            DarkGradient1.copy(alpha = 0.65f),
+            DarkGradient2.copy(alpha = 0.6f),
+            DarkGradient3.copy(alpha = 0.55f),
+            DarkGradient2.copy(alpha = 0.5f),
+            DarkGradient1.copy(alpha = 0.45f)
+        )
+    } else {
+        listOf(
+            LightGradient1.copy(alpha = 0.35f),
+            LightGradient2.copy(alpha = 0.3f),
+            LightGradient3.copy(alpha = 0.28f),
+            LightGradient2.copy(alpha = 0.25f),
+            LightGradient1.copy(alpha = 0.22f)
+        )
     }
     val palette = if (topColors != null && topColors.isNotEmpty()) {
         val c1 = topColors.getOrNull(0)
@@ -56,40 +71,22 @@ fun AnimatedGradientBackground(
         }
         if (isDark) {
             listOf(
-                final[0].copy(alpha = 0.65f),
+                final[0].copy(alpha = 0.78f),
                 final[1].copy(alpha = 0.6f),
                 final[2].copy(alpha = 0.55f),
                 final[1].copy(alpha = 0.5f),
-                final[0].copy(alpha = 0.45f)
+                final[0].copy(alpha = 0.55f)
             )
         } else {
             listOf(
-                final[0].copy(alpha = 0.35f),
+                final[0].copy(alpha = 0.45f),
                 final[1].copy(alpha = 0.3f),
                 final[2].copy(alpha = 0.28f),
                 final[1].copy(alpha = 0.25f),
-                final[0].copy(alpha = 0.22f)
+                final[0].copy(alpha = 0.28f)
             )
         }
-    } else {
-        if (isDark) {
-            listOf(
-                DarkGradient1.copy(alpha = 0.65f),
-                DarkGradient2.copy(alpha = 0.6f),
-                DarkGradient3.copy(alpha = 0.55f),
-                DarkGradient2.copy(alpha = 0.5f),
-                DarkGradient1.copy(alpha = 0.45f)
-            )
-        } else {
-            listOf(
-                LightGradient1.copy(alpha = 0.35f),
-                LightGradient2.copy(alpha = 0.3f),
-                LightGradient3.copy(alpha = 0.28f),
-                LightGradient2.copy(alpha = 0.25f),
-                LightGradient1.copy(alpha = 0.22f)
-            )
-        }
-    }
+    } else basePalette
 
     val a1 = animateColorAsState(targetValue = palette[0], animationSpec = tween(colorTransitionDurationMs, easing = FastOutSlowInEasing), label = "p1")
     val a2 = animateColorAsState(targetValue = palette[1], animationSpec = tween(colorTransitionDurationMs, easing = FastOutSlowInEasing), label = "p2")
@@ -151,12 +148,12 @@ fun AnimatedGradientBackground(
             val c5 = Offset(w * (0.85f + 0.3f * kotlin.math.sin(a2)), h * (0.2f + 0.35f * kotlin.math.cos(a3)))
 
             val centers = listOf(c1, c2, c3, c4, c5)
-            val rPulse1 = 1f + 0.12f * kotlin.math.sin(a1)
+            val rPulse1 = 1f + 0.22f * kotlin.math.sin(a1)
             val rPulse2 = 1f + 0.1f * kotlin.math.sin(a2)
             val rPulse3 = 1f + 0.12f * kotlin.math.sin(a3)
             val rPulse4 = 1f + 0.09f * kotlin.math.sin(a2)
             val rPulse5 = 1f + 0.08f * kotlin.math.sin(a3)
-            val radii = listOf(m * 0.9f * rPulse1, m * 0.85f * rPulse2, m * 0.88f * rPulse3, m * 0.8f * rPulse4, m * 0.75f * rPulse5)
+            val radii = listOf(m * 1.05f * rPulse1, m * 0.85f * rPulse2, m * 0.88f * rPulse3, m * 0.8f * rPulse4, m * 0.75f * rPulse5)
 
             centers.zip(animatedPalette.zip(radii)).forEach { (center, pair) ->
                 val (color, radius) = pair

@@ -1,4 +1,4 @@
-package com.example.musickt.ui.components
+package com.example.musickt.ui.album
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -37,14 +37,7 @@ fun AlbumCard(album: AlbumItem) {
                     mmr.setDataSource(path)
                     val art = mmr.embeddedPicture
                     mmr.release()
-                    art?.let { bytes ->
-                        val raw = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        if (raw != null) {
-                            val maxSide = 512
-                            val scale = maxOf(1, maxOf(raw.width, raw.height) / maxSide)
-                            Bitmap.createScaledBitmap(raw, raw.width / scale, raw.height / scale, true)
-                        } else null
-                    }
+                    art?.let { bytes -> decodeScaledByteArray(bytes, 512) }
                 } catch (_: Exception) {
                     null
                 }
@@ -106,4 +99,17 @@ fun AlbumCard(album: AlbumItem) {
             )
         }
     }
+}
+
+private fun decodeScaledByteArray(bytes: ByteArray, maxSide: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+    var sample = 1
+    while (maxDim / sample > maxSide) sample *= 2
+    val opts = BitmapFactory.Options().apply {
+        inSampleSize = sample
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
 }

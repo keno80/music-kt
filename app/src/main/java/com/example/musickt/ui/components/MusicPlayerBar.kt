@@ -49,7 +49,7 @@ fun MusicPlayerBar(
     colorTransitionDurationMs: Int = 500
 ) {
     AnimatedVisibility(
-        visible = currentMusic != null,
+        visible = true,
         enter = slideInVertically(initialOffsetY = { it }),
         exit = slideOutVertically(targetOffsetY = { it }),
         modifier = modifier

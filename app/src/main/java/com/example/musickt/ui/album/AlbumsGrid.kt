@@ -1,4 +1,4 @@
-package com.example.musickt.ui.components
+package com.example.musickt.ui.album
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.musickt.AlbumItem
+import com.example.musickt.ui.album.AlbumCard
 
 @Composable
 fun AlbumsGrid(albums: List<AlbumItem>, modifier: Modifier = Modifier) {

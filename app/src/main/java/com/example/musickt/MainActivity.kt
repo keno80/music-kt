@@ -50,9 +50,11 @@ import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
 import com.example.musickt.ui.components.MusicListItem
 import com.example.musickt.ui.components.MusicPlayerBar
-import com.example.musickt.ui.components.AlbumsGrid
+import com.example.musickt.ui.album.AlbumsGrid
+import com.example.musickt.ui.artist.ArtistsGrid
 import com.example.musickt.ui.components.SongsList
 import com.example.musickt.buildAlbums
+import com.example.musickt.buildArtists
 import com.example.musickt.ui.theme.MusicKtTheme
 import com.example.musickt.ui.theme.dominantColors
 import com.example.musickt.ui.theme.lighten
@@ -63,6 +65,7 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val musicList = mutableStateListOf<MusicItem>()
+    private val sortedMusicList = mutableStateListOf<MusicItem>()
     private lateinit var musicPlayer: MusicPlayer
 
     private val scanCompleteReceiver = object : BroadcastReceiver() {
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MusicKtTheme(currentMusic = musicPlayer.currentMusic) {
                 MainScreen(
-                    musicList = musicList,
+                    musicList = sortedMusicList,
                     musicPlayer = musicPlayer,
                     onSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
@@ -109,58 +112,13 @@ class MainActivity : ComponentActivity() {
 
     private fun loadMusicList() {
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-            val scannedMusic = mutableListOf<MusicItem>()
-            
-            val projection = arrayOf(
-                MediaStore.Audio.Media._ID,
-                MediaStore.Audio.Media.TITLE,
-                MediaStore.Audio.Media.ARTIST,
-                MediaStore.Audio.Media.ALBUM,
-                MediaStore.Audio.Media.DURATION,
-                MediaStore.Audio.Media.SIZE,
-                MediaStore.Audio.Media.DATA
-            )
-
-            val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
-            val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
-
-            try {
-                contentResolver.query(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    null,
-                    sortOrder
-                )?.use { cursor ->
-                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-                    val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-                    val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                    val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-                    val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-                    val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-                    val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idColumn)
-                        val title = cursor.getString(titleColumn) ?: "Unknown"
-                        val artist = cursor.getString(artistColumn) ?: "Unknown Artist"
-                        val album = cursor.getString(albumColumn) ?: "Unknown Album"
-                        val duration = cursor.getLong(durationColumn)
-                        val size = cursor.getLong(sizeColumn)
-                        val path = cursor.getString(dataColumn) ?: ""
-
-                        scannedMusic.add(
-                            MusicItem(id, title, artist, album, duration, size, path)
-                        )
-                    }
-                }
-            } catch (e: SecurityException) {
-                // 没有权限时忽略
-            }
-
+            val cached = MusicCache.load(this@MainActivity)
+            val processed = withContext(Dispatchers.Default) { preprocessAndSort(cached) }
             withContext(Dispatchers.Main) {
                 musicList.clear()
-                musicList.addAll(scannedMusic)
+                musicList.addAll(cached)
+                sortedMusicList.clear()
+                sortedMusicList.addAll(processed)
             }
         }
     }
@@ -179,7 +137,7 @@ fun MainScreen(
     onSettingsClick: () -> Unit
 ) {
     var currentMusicIndex by remember { mutableStateOf(-1) }
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     
     LaunchedEffect(musicPlayer.isPlaying) {
         while (musicPlayer.isPlaying) {
@@ -243,6 +201,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
+            val displayMusic by remember { derivedStateOf { sortMusicList(musicList) } }
             MusicPlayerBar(
                 currentMusic = musicPlayer.currentMusic,
                 isPlaying = musicPlayer.isPlaying,
@@ -257,24 +216,24 @@ fun MainScreen(
                     }
                 },
                 onNextClick = {
-                    if (currentMusicIndex < musicList.size - 1) {
+                    if (currentMusicIndex < displayMusic.size - 1) {
                         currentMusicIndex++
-                        musicPlayer.play(musicList[currentMusicIndex])
+                        musicPlayer.play(displayMusic[currentMusicIndex])
                     }
                 },
                 onPreviousClick = {
                     if (currentMusicIndex > 0) {
                         currentMusicIndex--
-                        musicPlayer.play(musicList[currentMusicIndex])
+                        musicPlayer.play(displayMusic[currentMusicIndex])
                     }
                 },
                 colorTransitionDurationMs = 500
             )
         }
     ) { paddingValues ->
-        val albums by remember {
-            derivedStateOf { buildAlbums(musicList) }
-        }
+        val albums by remember { derivedStateOf { buildAlbums(musicList) } }
+        val artists by remember { derivedStateOf { buildArtists(musicList) } }
+        val sortedMusic by remember { derivedStateOf { sortMusicList(musicList) } }
         HorizontalPager(
             state = pagerState,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
@@ -294,22 +253,157 @@ fun MainScreen(
                         AlbumsGrid(albums = albums)
                     }
                 }
-            } else {
-                AnimatedContent(targetState = musicList.size, transitionSpec = {
+            } else if (page == 1) {
+                AnimatedContent(targetState = sortedMusic.isEmpty(), transitionSpec = {
                     fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
-                }, label = "songsContent") { _ ->
-                    SongsList(
-                        musicList = musicList,
-                        isPlayingId = musicPlayer.currentMusic?.id,
-                        onItemClick = { index, item ->
-                            currentMusicIndex = index
-                            musicPlayer.play(item)
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                }, label = "songsContent") { empty ->
+                    if (empty) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "未发现音乐", style = MaterialTheme.typography.titleMedium)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "请前往设置页扫描音乐", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(onClick = onSettingsClick) { Text("去设置扫描") }
+                            }
+                        }
+                    } else {
+                        SongsList(
+                            musicList = sortedMusic,
+                            isPlayingId = musicPlayer.currentMusic?.id,
+                            onItemClick = { index, item ->
+                                currentMusicIndex = index
+                                musicPlayer.play(item)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            } else {
+                AnimatedContent(targetState = artists.isEmpty(), transitionSpec = {
+                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+                }, label = "artistsContent") { empty ->
+                    if (empty) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = "暂无艺术家", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    } else {
+                        ArtistsGrid(artists = artists)
+                    }
                 }
             }
         }
     }
     }
+}
+
+private var transliteratorCached: Any? = null
+private var transliterateMethodCached: java.lang.reflect.Method? = null
+private fun initTransliterator() {
+    if (transliterateMethodCached != null) return
+    if (Build.VERSION.SDK_INT >= 24) {
+        try {
+            val cls = Class.forName("android.icu.text.Transliterator")
+            val getInstance = cls.getMethod("getInstance", String::class.java)
+            transliteratorCached = getInstance.invoke(null, "Han-Latin/Names; Latin-ASCII")
+            transliterateMethodCached = cls.getMethod("transliterate", String::class.java)
+        } catch (_: Exception) { transliterateMethodCached = null; transliteratorCached = null }
+    }
+}
+
+private fun toHalfWidth(input: String): String {
+    val sb = StringBuilder(input.length)
+    for (ch in input) {
+        val code = ch.code
+        if (code == 12288) sb.append(' ')
+        else if (code in 65281..65374) sb.append((code - 65248).toChar())
+        else sb.append(ch)
+    }
+    return sb.toString()
+}
+
+private fun transliterateToAsciiCached(s: String): String {
+    val t = toHalfWidth(s).trim()
+    if (t.isEmpty()) return ""
+    initTransliterator()
+    val m = transliterateMethodCached
+    val inst = transliteratorCached
+    if (m != null && inst != null) {
+        try {
+            val out = m.invoke(inst, t) as String
+            return java.text.Normalizer.normalize(out, java.text.Normalizer.Form.NFD)
+                .replace("\\p{InCombiningDiacriticalMarks}".toRegex(), "")
+        } catch (_: Exception) { /* fall through */ }
+    }
+    return t
+}
+
+private fun preprocessAndSort(list: List<MusicItem>): List<MusicItem> {
+    return list.map { item ->
+        val t = toHalfWidth(item.title).trim()
+        val group: Int
+        val letter: Char
+        if (t.isEmpty()) {
+            group = 2; letter = '#'
+        } else {
+            val c = t.first()
+            if (c.isDigit()) { group = 0; letter = '0' }
+            else if (c in 'A'..'Z' || c in 'a'..'z') { group = 1; letter = c.uppercaseChar() }
+            else {
+                val ascii = transliterateToAsciiCached(t)
+                val first = ascii.firstOrNull { it.isLetter() }?.uppercaseChar() ?: '#'
+                group = 1; letter = first
+            }
+        }
+        val asciiFull = transliterateToAsciiCached(t).lowercase()
+        item.copy(sortGroup = group, sortLetter = letter, sortAscii = asciiFull)
+    }.sortedWith(compareBy(
+        { it.sortGroup },
+        { it.sortLetter },
+        { it.sortAscii }
+    ))
+}
+
+private fun sortMusicList(list: List<MusicItem>): List<MusicItem> {
+    fun toHalfWidth(input: String): String {
+        val sb = StringBuilder(input.length)
+        for (ch in input) {
+            val code = ch.code
+            if (code == 12288) sb.append(' ')
+            else if (code in 65281..65374) sb.append((code - 65248).toChar())
+            else sb.append(ch)
+        }
+        return sb.toString()
+    }
+    fun transliterateToAscii(s: String): String {
+        val t = toHalfWidth(s).trim()
+        if (t.isEmpty()) return ""
+        if (Build.VERSION.SDK_INT >= 24) {
+            try {
+                val cls = Class.forName("android.icu.text.Transliterator")
+                val getInstance = cls.getMethod("getInstance", String::class.java)
+                val transliterator = getInstance.invoke(null, "Han-Latin/Names; Latin-ASCII")
+                val transliterate = cls.getMethod("transliterate", String::class.java)
+                val out = transliterate.invoke(transliterator, t) as String
+                return java.text.Normalizer.normalize(out, java.text.Normalizer.Form.NFD)
+                    .replace("\\p{InCombiningDiacriticalMarks}".toRegex(), "")
+            } catch (_: Exception) { /* fall through */ }
+        }
+        return t
+    }
+    fun firstLetterKey(title: String): Pair<Int, Char> {
+        val t = toHalfWidth(title).trim()
+        if (t.isEmpty()) return 2 to '#'
+        val c = t.first()
+        if (c.isDigit()) return 0 to '0'
+        val asciiLetter = c in 'A'..'Z' || c in 'a'..'z'
+        if (asciiLetter) return 1 to c.uppercaseChar()
+        val asciiFromHan = transliterateToAscii(t).firstOrNull { it.isLetter() }?.uppercaseChar() ?: '#'
+        return 1 to asciiFromHan
+    }
+    return list.sortedWith(compareBy(
+        { firstLetterKey(it.title).first },
+        { firstLetterKey(it.title).second },
+        { transliterateToAscii(it.title).lowercase() }
+    ))
 }

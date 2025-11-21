@@ -136,20 +136,91 @@ class SettingsActivity : ComponentActivity() {
                 }
             }
 
+            val processed = withContext(Dispatchers.Default) { preprocessAndSort(scannedMusic) }
             withContext(Dispatchers.Main) {
                 isScanning = false
-                scannedMusicList = scannedMusic
-                saveScanResult(scannedMusic)
+                scannedMusicList = processed
+                saveScanResult(processed)
                 showDialog = true
             }
         }
     }
 
     private fun saveScanResult(musicList: List<MusicItem>) {
+        try {
+            MusicCache.save(this, musicList)
+        } catch (_: Exception) {}
         val intent = Intent(SCAN_COMPLETE_ACTION)
         intent.putExtra(EXTRA_SONG_COUNT, musicList.size)
         intent.putExtra(EXTRA_TOTAL_SIZE, musicList.sumOf { it.size })
         sendBroadcast(intent)
+    }
+
+    private var transliteratorCached: Any? = null
+    private var transliterateMethodCached: java.lang.reflect.Method? = null
+    private fun initTransliterator() {
+        if (transliterateMethodCached != null) return
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            try {
+                val cls = Class.forName("android.icu.text.Transliterator")
+                val getInstance = cls.getMethod("getInstance", String::class.java)
+                transliteratorCached = getInstance.invoke(null, "Han-Latin/Names; Latin-ASCII")
+                transliterateMethodCached = cls.getMethod("transliterate", String::class.java)
+            } catch (_: Exception) { transliterateMethodCached = null; transliteratorCached = null }
+        }
+    }
+
+    private fun toHalfWidth(input: String): String {
+        val sb = StringBuilder(input.length)
+        for (ch in input) {
+            val code = ch.code
+            if (code == 12288) sb.append(' ')
+            else if (code in 65281..65374) sb.append((code - 65248).toChar())
+            else sb.append(ch)
+        }
+        return sb.toString()
+    }
+
+    private fun transliterateToAsciiCached(s: String): String {
+        val t = toHalfWidth(s).trim()
+        if (t.isEmpty()) return ""
+        initTransliterator()
+        val m = transliterateMethodCached
+        val inst = transliteratorCached
+        if (m != null && inst != null) {
+            try {
+                val out = m.invoke(inst, t) as String
+                return java.text.Normalizer.normalize(out, java.text.Normalizer.Form.NFD)
+                    .replace("\\p{InCombiningDiacriticalMarks}".toRegex(), "")
+            } catch (_: Exception) { /* fall through */ }
+        }
+        return t
+    }
+
+    private fun preprocessAndSort(list: List<MusicItem>): List<MusicItem> {
+        return list.map { item ->
+            val t = toHalfWidth(item.title).trim()
+            val group: Int
+            val letter: Char
+            if (t.isEmpty()) {
+                group = 2; letter = '#'
+            } else {
+                val c = t.first()
+                if (c.isDigit()) { group = 0; letter = '0' }
+                else if (c in 'A'..'Z' || c in 'a'..'z') { group = 1; letter = c.uppercaseChar() }
+                else {
+                    val ascii = transliterateToAsciiCached(t)
+                    val first = ascii.firstOrNull { it.isLetter() }?.uppercaseChar() ?: '#'
+                    group = 1; letter = first
+                }
+            }
+            val asciiFull = transliterateToAsciiCached(t).lowercase()
+            item.copy(sortGroup = group, sortLetter = letter, sortAscii = asciiFull)
+        }.sortedWith(compareBy(
+            { it.sortGroup },
+            { it.sortLetter },
+            { it.sortAscii }
+        ))
     }
 
     private fun formatSize(size: Long): String {

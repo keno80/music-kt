@@ -57,7 +57,7 @@ fun MusicPlayerBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
                 .navigationBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {

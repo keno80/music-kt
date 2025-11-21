@@ -12,6 +12,8 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
@@ -166,11 +168,20 @@ fun MusicKtTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    val dominantLeft = cover?.dominant?.getOrNull(0) ?: colorScheme.surfaceVariant
+    val playerTextColor = if (luminance(dominantLeft) < 0.5f) {
+        lighten(dominantLeft, 0.75f)
+    } else {
+        darken(dominantLeft, 0.75f)
+    }
+
+    CompositionLocalProvider(LocalPlayerTextColor provides playerTextColor) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
 
 private data class CoverColors(
@@ -230,3 +241,5 @@ private fun colorDistance(c1: Color, c2: Color): Float {
 private fun luminance(color: Color): Float {
     return 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
 }
+
+val LocalPlayerTextColor = staticCompositionLocalOf<Color> { Color.Unspecified }

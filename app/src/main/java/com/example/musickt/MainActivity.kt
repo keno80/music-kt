@@ -12,9 +12,19 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -23,6 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
@@ -36,7 +50,12 @@ import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
 import com.example.musickt.ui.components.MusicListItem
 import com.example.musickt.ui.components.MusicPlayerBar
+import com.example.musickt.ui.components.AlbumsGrid
+import com.example.musickt.ui.components.SongsList
+import com.example.musickt.buildAlbums
 import com.example.musickt.ui.theme.MusicKtTheme
+import com.example.musickt.ui.theme.dominantColors
+import com.example.musickt.ui.theme.lighten
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -152,7 +171,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     musicList: List<MusicItem>,
@@ -160,6 +179,7 @@ fun MainScreen(
     onSettingsClick: () -> Unit
 ) {
     var currentMusicIndex by remember { mutableStateOf(-1) }
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
     
     LaunchedEffect(musicPlayer.isPlaying) {
         while (musicPlayer.isPlaying) {
@@ -188,7 +208,7 @@ fun MainScreen(
                                 }
                             }
                         }
-                        val dom = remember(bitmap) { bitmap?.let { dominantColorsTopBar(it) } }
+                        val dom = remember(bitmap) { bitmap?.let { dominantColors(it) } }
                         val base = dom?.getOrNull(0) ?: MaterialTheme.colorScheme.surfaceVariant
                         val targetCapsule = lighten(base, 0.18f)
                         val capsuleColor by animateColorAsState(targetValue = targetCapsule, animationSpec = tween(500, easing = FastOutSlowInEasing), label = "settingsCapsule")
@@ -228,7 +248,7 @@ fun MainScreen(
                 isPlaying = musicPlayer.isPlaying,
                 currentPosition = musicPlayer.currentPosition,
                 duration = musicPlayer.duration,
-                modifier = Modifier.padding(bottom = 28.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
                 onPlayPauseClick = {
                     if (musicPlayer.isPlaying) {
                         musicPlayer.pause()
@@ -252,75 +272,44 @@ fun MainScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        val albums by remember {
+            derivedStateOf { buildAlbums(musicList) }
+        }
+        HorizontalPager(
+            state = pagerState,
+            flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-        ) {
-            items(musicList.size) { index ->
-                val music = musicList[index]
-                MusicListItem(
-                    music = music,
-                    isPlaying = musicPlayer.currentMusic?.id == music.id,
-                    onClick = {
-                        currentMusicIndex = index
-                        musicPlayer.play(music)
+        ) { page ->
+            if (page == 0) {
+                AnimatedContent(targetState = albums.isEmpty(), transitionSpec = {
+                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+                }, label = "albumsContent") { empty ->
+                    if (empty) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = "暂无专辑", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    } else {
+                        AlbumsGrid(albums = albums)
                     }
-                )
+                }
+            } else {
+                AnimatedContent(targetState = musicList.size, transitionSpec = {
+                    fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+                }, label = "songsContent") { _ ->
+                    SongsList(
+                        musicList = musicList,
+                        isPlayingId = musicPlayer.currentMusic?.id,
+                        onItemClick = { index, item ->
+                            currentMusicIndex = index
+                            musicPlayer.play(item)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
-        }
     }
-}
-
-private fun dominantColorsTopBar(bitmap: Bitmap, count: Int = 1): List<Color> {
-    val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
-    val step = 32
-    val freq = HashMap<Int, Float>()
-    val cx = scaled.width / 2f
-    val cy = scaled.height / 2f
-    val maxDist = kotlin.math.sqrt(cx * cx + cy * cy)
-    val hsv = FloatArray(3)
-    for (y in 0 until scaled.height) {
-        for (x in 0 until scaled.width) {
-            val c = scaled.getPixel(x, y)
-            val a = (c shr 24) and 0xFF
-            if (a < 128) continue
-            val r = (c shr 16) and 0xFF
-            val g = (c shr 8) and 0xFF
-            val b = c and 0xFF
-            AndroidColor.RGBToHSV(r, g, b, hsv)
-            val s = hsv[1]
-            val v = hsv[2]
-            if (s < 0.20f) continue
-            if (v < 0.12f || v > 0.95f) continue
-            val dx = x - cx
-            val dy = y - cy
-            val norm = kotlin.math.sqrt(dx * dx + dy * dy) / maxDist
-            val weight = (1f - norm) * (1f - norm)
-            val rq = r / step
-            val gq = g / step
-            val bq = b / step
-            val key = (rq shl 6) or (gq shl 3) or bq
-            freq[key] = (freq[key] ?: 0f) + weight
-        }
     }
-    val sorted = freq.entries.sortedByDescending { it.value }.take(count)
-    return sorted.map {
-        val rq = (it.key shr 6) and 0x7
-        val gq = (it.key shr 3) and 0x7
-        val bq = it.key and 0x7
-        val r = rq * step + step / 2
-        val g = gq * step + step / 2
-        val b = bq * step + step / 2
-        Color(r / 255f, g / 255f, b / 255f)
-    }
-}
-
-private fun lighten(color: Color, amount: Float): Color {
-    val a = color.alpha
-    val r = (color.red + (1f - color.red) * amount).coerceIn(0f, 1f)
-    val g = (color.green + (1f - color.green) * amount).coerceIn(0f, 1f)
-    val b = (color.blue + (1f - color.blue) * amount).coerceIn(0f, 1f)
-    return Color(r, g, b, a)
 }

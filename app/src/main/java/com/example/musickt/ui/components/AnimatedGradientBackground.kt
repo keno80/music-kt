@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import com.example.musickt.ui.theme.dominantColors
 import com.example.musickt.ui.theme.*
 import com.example.musickt.MusicItem
 import android.media.MediaMetadataRetriever
@@ -181,38 +182,6 @@ fun AnimatedGradientBackground(
     }
 }
 
-private fun dominantColors(bitmap: Bitmap, count: Int = 3): List<Color> {
-    val scaled = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
-    val step = 32
-    val freq = HashMap<Int, Int>()
-    for (y in 0 until scaled.height) {
-        for (x in 0 until scaled.width) {
-            val c = scaled.getPixel(x, y)
-            val a = (c shr 24) and 0xFF
-            if (a < 128) continue
-            val r = (c shr 16) and 0xFF
-            val g = (c shr 8) and 0xFF
-            val b = c and 0xFF
-            val brightness = (r + g + b) / 3
-            if (brightness < 24 || brightness > 232) continue
-            val rq = r / step
-            val gq = g / step
-            val bq = b / step
-            val key = (rq shl 6) or (gq shl 3) or bq
-            freq[key] = (freq[key] ?: 0) + 1
-        }
-    }
-    val sorted = freq.entries.sortedByDescending { it.value }.take(count)
-    return sorted.map {
-        val rq = (it.key shr 6) and 0x7
-        val gq = (it.key shr 3) and 0x7
-        val bq = it.key and 0x7
-        val r = rq * step + step / 2
-        val g = gq * step + step / 2
-        val b = bq * step + step / 2
-        Color(r / 255f, g / 255f, b / 255f)
-    }
-}
 
 private fun darken(color: Color, amount: Float): Color {
     val a = color.alpha

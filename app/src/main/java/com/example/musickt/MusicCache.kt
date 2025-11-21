@@ -27,6 +27,9 @@ object MusicCache {
                     writer.name("duration").value(m.duration)
                     writer.name("size").value(m.size)
                     writer.name("path").value(m.path)
+                    writer.name("sortAscii").value(m.sortAscii)
+                    writer.name("sortGroup").value(m.sortGroup)
+                    writer.name("sortLetter").value(m.sortLetter.toString())
                     writer.endObject()
                 }
                 writer.endArray()
@@ -50,6 +53,9 @@ object MusicCache {
                     var duration = 0L
                     var size = 0L
                     var path = ""
+                    var sortAscii = ""
+                    var sortGroup = 2
+                    var sortLetter: Char = '#'
                     reader.beginObject()
                     while (reader.hasNext()) {
                         when (reader.nextName()) {
@@ -60,11 +66,30 @@ object MusicCache {
                             "duration" -> duration = reader.nextLong()
                             "size" -> size = reader.nextLong()
                             "path" -> path = reader.nextString()
+                            "sortAscii" -> sortAscii = reader.nextString()
+                            "sortGroup" -> sortGroup = reader.nextInt()
+                            "sortLetter" -> {
+                                val s = reader.nextString()
+                                sortLetter = s.firstOrNull() ?: '#'
+                            }
                             else -> reader.skipValue()
                         }
                     }
                     reader.endObject()
-                    list.add(MusicItem(id, title, artist, album, duration, size, path))
+                    list.add(
+                        MusicItem(
+                            id,
+                            title,
+                            artist,
+                            album,
+                            duration,
+                            size,
+                            path,
+                            sortAscii,
+                            sortGroup,
+                            sortLetter
+                        )
+                    )
                 }
                 reader.endArray()
                 reader.close()

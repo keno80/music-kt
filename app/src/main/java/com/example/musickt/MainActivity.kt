@@ -50,6 +50,7 @@ import com.example.musickt.player.MusicPlayerHolder
 import com.example.musickt.ui.components.AnimatedGradientBackground
 import com.example.musickt.ui.components.MusicListItem
 import com.example.musickt.ui.components.MusicPlayerBar
+import com.example.musickt.ui.components.ScanResultDialog
 import com.example.musickt.ui.album.AlbumsGrid
 import com.example.musickt.ui.artist.ArtistsGrid
 import com.example.musickt.ui.components.SongsList
@@ -58,6 +59,8 @@ import com.example.musickt.buildArtists
 import com.example.musickt.ui.theme.MusicKtTheme
 import com.example.musickt.ui.theme.dominantColors
 import com.example.musickt.ui.theme.lighten
+import com.example.musickt.AlbumItem
+import com.example.musickt.ArtistItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -66,10 +69,17 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     private val musicList = mutableStateListOf<MusicItem>()
     private val sortedMusicList = mutableStateListOf<MusicItem>()
+    private val albumsState = mutableStateListOf<AlbumItem>()
+    private val artistsState = mutableStateListOf<ArtistItem>()
     private lateinit var musicPlayer: MusicPlayer
+    private var pendingScanResult: Pair<Int, Long>? = null
+    private val scanDialogInfo = mutableStateOf<Pair<Int, Long>?>(null)
 
     private val scanCompleteReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val count = intent?.getIntExtra(SettingsActivity.EXTRA_SONG_COUNT, 0) ?: 0
+            val total = intent?.getLongExtra(SettingsActivity.EXTRA_TOTAL_SIZE, 0L) ?: 0L
+            pendingScanResult = count to total
             loadMusicList()
         }
     }
@@ -81,6 +91,7 @@ class MainActivity : ComponentActivity() {
         
         musicPlayer = MusicPlayerHolder.get(this)
         registerScanReceiver()
+        prefillFromCache()
         loadMusicList()
         
         setContent {
@@ -90,7 +101,11 @@ class MainActivity : ComponentActivity() {
                     musicPlayer = musicPlayer,
                     onSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
-                    }
+                    },
+                    scanDialogInfo = scanDialogInfo.value,
+                    onDismissScanDialog = { scanDialogInfo.value = null },
+                    albums = albumsState,
+                    artists = artistsState
                 )
             }
         }
@@ -113,14 +128,56 @@ class MainActivity : ComponentActivity() {
     private fun loadMusicList() {
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             val cached = MusicCache.load(this@MainActivity)
-            val processed = withContext(Dispatchers.Default) { preprocessAndSort(cached) }
+            val processed = withContext(Dispatchers.Default) {
+                if (cached.all { it.sortAscii.isNotEmpty() }) {
+                    cached.sortedWith(compareBy(
+                        { it.sortGroup },
+                        { it.sortLetter },
+                        { it.sortAscii }
+                    ))
+                } else {
+                    val p = preprocessAndSort(cached)
+                    try { MusicCache.save(this@MainActivity, p) } catch (_: Exception) {}
+                    p
+                }
+            }
+            val builtAlbums = withContext(Dispatchers.Default) { buildAlbums(processed) }
+            val builtArtists = withContext(Dispatchers.Default) { buildArtists(processed) }
             withContext(Dispatchers.Main) {
                 musicList.clear()
                 musicList.addAll(cached)
                 sortedMusicList.clear()
                 sortedMusicList.addAll(processed)
+                albumsState.clear()
+                albumsState.addAll(builtAlbums)
+                artistsState.clear()
+                artistsState.addAll(builtArtists)
+                val pending = pendingScanResult
+                if (pending != null) {
+                    scanDialogInfo.value = pending
+                    pendingScanResult = null
+                }
             }
         }
+    }
+
+    private fun prefillFromCache() {
+        try {
+            val cached = MusicCache.load(this)
+            if (cached.isNotEmpty()) {
+                val processed = if (cached.all { it.sortAscii.isNotEmpty() }) {
+                    cached.sortedWith(compareBy(
+                        { it.sortGroup },
+                        { it.sortLetter },
+                        { it.sortAscii }
+                    ))
+                } else cached
+                musicList.clear()
+                musicList.addAll(cached)
+                sortedMusicList.clear()
+                sortedMusicList.addAll(processed)
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onDestroy() {
@@ -134,7 +191,11 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     musicList: List<MusicItem>,
     musicPlayer: MusicPlayer,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    scanDialogInfo: Pair<Int, Long>?,
+    onDismissScanDialog: () -> Unit,
+    albums: List<AlbumItem>,
+    artists: List<ArtistItem>
 ) {
     var currentMusicIndex by remember { mutableStateOf(-1) }
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -201,7 +262,7 @@ fun MainScreen(
                 )
             },
             bottomBar = {
-            val displayMusic by remember { derivedStateOf { sortMusicList(musicList) } }
+            val displayMusic = musicList
             MusicPlayerBar(
                 currentMusic = musicPlayer.currentMusic,
                 isPlaying = musicPlayer.isPlaying,
@@ -230,10 +291,10 @@ fun MainScreen(
                 colorTransitionDurationMs = 500
             )
         }
-    ) { paddingValues ->
-        val albums by remember { derivedStateOf { buildAlbums(musicList) } }
-        val artists by remember { derivedStateOf { buildArtists(musicList) } }
-        val sortedMusic by remember { derivedStateOf { sortMusicList(musicList) } }
+        ) { paddingValues ->
+        val albumsList = albums
+        val artistsList = artists
+        val sortedMusic = musicList
         HorizontalPager(
             state = pagerState,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
@@ -250,7 +311,7 @@ fun MainScreen(
                             Text(text = "暂无专辑", style = MaterialTheme.typography.bodyMedium)
                         }
                     } else {
-                        AlbumsGrid(albums = albums)
+                        AlbumsGrid(albums = albumsList)
                     }
                 }
             } else if (page == 1) {
@@ -288,10 +349,18 @@ fun MainScreen(
                             Text(text = "暂无艺术家", style = MaterialTheme.typography.bodyMedium)
                         }
                     } else {
-                        ArtistsGrid(artists = artists)
+                        ArtistsGrid(artists = artistsList)
                     }
                 }
             }
+        }
+        if (scanDialogInfo != null) {
+            ScanResultDialog(
+                songCount = scanDialogInfo.first,
+                totalSize = formatSize(scanDialogInfo.second),
+                onDismiss = onDismissScanDialog,
+                onStartZenly = onDismissScanDialog
+            )
         }
     }
     }
@@ -406,4 +475,15 @@ private fun sortMusicList(list: List<MusicItem>): List<MusicItem> {
         { firstLetterKey(it.title).second },
         { transliterateToAscii(it.title).lowercase() }
     ))
+}
+
+private fun formatSize(size: Long): String {
+    val kb = size / 1024.0
+    val mb = kb / 1024.0
+    val gb = mb / 1024.0
+    return when {
+        gb >= 1 -> String.format("%.2f GB", gb)
+        mb >= 1 -> String.format("%.2f MB", mb)
+        else -> String.format("%.2f KB", kb)
+    }
 }

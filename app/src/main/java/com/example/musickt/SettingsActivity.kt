@@ -37,7 +37,6 @@ class SettingsActivity : ComponentActivity() {
         }
     }
     
-    private var showDialog by mutableStateOf(false)
     private var scannedMusicList by mutableStateOf<List<MusicItem>>(emptyList())
     private var isScanning by mutableStateOf(false)
 
@@ -54,18 +53,6 @@ class SettingsActivity : ComponentActivity() {
                     onScanClick = { checkPermissionAndScan() }
                 )
                 
-                if (showDialog) {
-                    val totalSize = scannedMusicList.sumOf { it.size }
-                    ScanResultDialog(
-                        songCount = scannedMusicList.size,
-                        totalSize = formatSize(totalSize),
-                        onDismiss = { showDialog = false },
-                        onStartZenly = {
-                            showDialog = false
-                            finish()
-                        }
-                    )
-                }
             }
         }
     }
@@ -141,7 +128,7 @@ class SettingsActivity : ComponentActivity() {
                 isScanning = false
                 scannedMusicList = processed
                 saveScanResult(processed)
-                showDialog = true
+                finish()
             }
         }
     }
